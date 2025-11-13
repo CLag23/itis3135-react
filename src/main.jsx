@@ -5,11 +5,11 @@ import App from './App.jsx'
 import Layout from './Layout.jsx'
 import Introduction  from './Introduction.jsx'
 import Contract  from './Contract.jsx'
-import { BrowserRouter, Routes, Route } from 'react-router'
+import { HashRouter, Routes, Route } from 'react-router'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path='/' element={<Layout />}>
           <Route path='/' element={<App />}></Route>
@@ -17,6 +17,6 @@ createRoot(document.getElementById('root')).render(
           <Route path='/contract' element={<Contract />}></Route>
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   </StrictMode>,
 )
