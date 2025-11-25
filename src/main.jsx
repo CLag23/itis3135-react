@@ -5,7 +5,7 @@ import App from './App.jsx'
 import Layout from './Layout.jsx'
 import Introduction  from './Introduction.jsx'
 import Contract  from './Contract.jsx'
-import { HashRouter, Routes, Route } from 'react-router'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

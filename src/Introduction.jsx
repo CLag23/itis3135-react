@@ -7,7 +7,7 @@ export default function Introduction() {
             <h2>Introduction </h2>
         <h2>Carls Laguerre 💠 Cosmic Lynx</h2>
         <figure>
-            <img src="public/mypic.jpg" alt="A picture of Carls Laguerre" width="200" height="300"/>
+            <img src="/mypic.jpg" alt="A picture of Carls Laguerre" width="200" height="300"/>
             <figcaption>Carls Laguerre</figcaption>
         </figure>   
 
