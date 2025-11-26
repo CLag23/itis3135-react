@@ -218,7 +218,7 @@ export default function IntroductionData() {
           name="prefix"
           value={prefix}
           onChange={(e) => setPrefix(e.target.value)}
-          placeholder="e.g. aperki41"
+          placeholder="e.g. claguerr"
         />
         <button type="submit" disabled={loading}>
           {loading ? 'Searching...' : 'Search'}
