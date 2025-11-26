@@ -5,6 +5,7 @@ import App from './App.jsx'
 import Layout from './Layout.jsx'
 import Introduction  from './Introduction.jsx'
 import Contract  from './Contract.jsx'
+import IntroductionData  from './Introduction-data.jsx'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 
 createRoot(document.getElementById('root')).render(
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')).render(
           <Route path='/' element={<App />}></Route>
           <Route path='/introduction' element={<Introduction />}></Route>
           <Route path='/contract' element={<Contract />}></Route>
+          <Route path='/introduction-data' element={<IntroductionData />}></Route>
         </Route>
       </Routes>
     </HashRouter>
