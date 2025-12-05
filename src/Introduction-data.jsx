@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 const API_BASE = 'https://dvonb.xyz/api/2025-fall/itis-3135/students/';
-const PAGE_SIZE = 15;
 
 function getFullName(student) {
   if (!student?.name) return '';
@@ -76,97 +75,99 @@ function Links({ links, divider }) {
 }
 
 export default function IntroductionData() {
-  const [prefix, setPrefix] = useState('');
-  const [student, setStudent] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [prefixes, setPrefixes] = useState([]);
-  const [page, setPage] = useState(0);
-  const [prefixError, setPrefixError] = useState('');
+  const [allStudents, setAllStudents] = useState([]);
+  const [nameSearch, setNameSearch] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showAllMode, setShowAllMode] = useState(false);
+
+  // Checkbox state for field visibility
+  const [showFields, setShowFields] = useState({
+    name: true,
+    mascot: true,
+    image: true,
+    personalStatement: true,
+    backgrounds: true,
+    classes: true,
+    extraInfo: true,
+    quote: true,
+    links: true
+  });
 
   useEffect(() => {
     document.title = "Carl's Laguerre Introduction Data";
 
-    const loadPrefixes = async () => {
+    const loadStudents = async () => {
       try {
         const resp = await fetch(API_BASE);
-        if (!resp.ok) throw new Error('Unable to load prefixes.');
+        if (!resp.ok) return;
         const data = await resp.json();
         if (Array.isArray(data)) {
           const uniquePrefixes = [...new Set(data.map((item) => item.prefix).filter(Boolean))];
-          setPrefixes(uniquePrefixes);
-        } else {
-          setPrefixError('No prefix list available.');
+
+          // Fetch all students for slideshow
+          const studentPromises = uniquePrefixes.map(async (prefix) => {
+            try {
+              const response = await fetch(`${API_BASE}${encodeURIComponent(prefix)}`);
+              if (!response.ok) return null;
+              const studentData = await response.json();
+              return Array.isArray(studentData) ? studentData[0] : studentData;
+            } catch {
+              return null;
+            }
+          });
+
+          const students = await Promise.all(studentPromises);
+          setAllStudents(students.filter(Boolean));
         }
       } catch (err) {
-        setPrefixError('Unable to load prefix list.');
+        console.error('Error loading students:', err);
       }
     };
 
-    loadPrefixes();
+    loadStudents();
   }, []);
 
-  const runSearch = async (value) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      setError('Enter an email prefix to search.');
-      setStudent(null);
-      return;
-    }
 
-    setLoading(true);
-    setError('');
-    setStudent(null);
+  const filteredStudents = allStudents.filter((student) => {
+    if (!nameSearch.trim()) return true;
+    const fullName = getFullName(student).toLowerCase();
+    const searchTerm = nameSearch.toLowerCase();
+    return fullName.includes(searchTerm);
+  });
 
-    try {
-      const response = await fetch(`${API_BASE}${encodeURIComponent(trimmed)}`);
-      if (!response.ok) {
-        throw new Error('No student found for that prefix.');
-      }
-      const data = await response.json();
-      const normalized = Array.isArray(data) ? data[0] : data;
-      if (!normalized) {
-        throw new Error('No student found for that prefix.');
-      }
-      setStudent(normalized);
-    } catch (err) {
-      setError(err.message || 'Unable to fetch student data.');
-    } finally {
-      setLoading(false);
-    }
+  // Handle checkbox changes
+  const handleCheckboxChange = (field) => {
+    setShowFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const handleSearch = async (event) => {
-    event.preventDefault();
-    await runSearch(prefix);
+  // Slideshow navigation
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : filteredStudents.length - 1));
   };
 
-  const handlePrefixClick = async (value) => {
-    setPrefix(value);
-    await runSearch(value);
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev < filteredStudents.length - 1 ? prev + 1 : 0));
   };
 
-  const totalPages = Math.ceil(prefixes.length / PAGE_SIZE);
-  const start = page * PAGE_SIZE;
-  const end = start + PAGE_SIZE;
-  const pageItems = prefixes.slice(start, end);
+  const renderStudent = (studentData) => {
+    if (!studentData) return null;
+    const divider = studentData.divider || '|';
+    const name = getFullName(studentData);
+    const titleParts = [];
+    if (showFields.name) titleParts.push(name || 'Student');
+    if (showFields.mascot && studentData.mascot) titleParts.push(studentData.mascot);
 
-  const renderStudent = () => {
-    if (!student) return null;
-    const divider = student.divider || '|';
-    const name = getFullName(student);
-    const titleParts = [name || 'Student', student.mascot].filter(Boolean);
-    const media = student.media;
+    const media = studentData.media;
     const imageSrc = media?.src
       ? (media.src.startsWith('http') ? media.src : `https://dvonb.xyz${media.src}`)
       : '';
-    const showImage = media?.hasImage && imageSrc;
+    const showImage = showFields.image && media?.hasImage && imageSrc;
 
     return (
       <article>
-        <h2>{titleParts.join(` ${divider} `)}</h2>
-        {student.acknowledgement && (
-          <p><strong>Acknowledgement:</strong> {student.acknowledgement}</p>
+        {titleParts.length > 0 && <h2>{titleParts.join(` ${divider} `)}</h2>}
+        {studentData.acknowledgement && (
+          <p><strong>Acknowledgement:</strong> {studentData.acknowledgement}</p>
         )}
 
         {showImage && (
@@ -176,32 +177,33 @@ export default function IntroductionData() {
           </figure>
         )}
 
-        <Backgrounds backgrounds={student.backgrounds} />
+        {showFields.backgrounds && <Backgrounds backgrounds={studentData.backgrounds} />}
 
-        {student.courses?.length ? (
+        {showFields.classes && studentData.courses?.length ? (
           <>
             <h3>Courses</h3>
-            <CourseList courses={student.courses} />
+            <CourseList courses={studentData.courses} />
           </>
         ) : null}
 
-        {student.personalStatement && (
+        {showFields.personalStatement && studentData.personalStatement && (
           <>
             <h3>Personal Statement</h3>
-            <p>{student.personalStatement}</p>
+            <p>{studentData.personalStatement}</p>
           </>
         )}
 
-        {student.quote?.text && (
-          <p><strong>Quote:</strong> {student.quote.text}{student.quote.author ? ` - ${student.quote.author}` : ''}</p>
+        {showFields.quote && studentData.quote?.text && (
+          <p><strong>Quote:</strong> {studentData.quote.text}{studentData.quote.author ? ` - ${studentData.quote.author}` : ''}</p>
         )}
 
-        {student.funFact && <p><strong>Fun Fact:</strong> {student.funFact}</p>}
+        {showFields.extraInfo && studentData.funFact && <p><strong>Fun Fact:</strong> {studentData.funFact}</p>}
+        {showFields.extraInfo && studentData.computer && <p><strong>Computer:</strong> {studentData.computer}</p>}
 
-        {student.links ? (
+        {showFields.links && studentData.links ? (
           <>
             <h3>Links</h3>
-            <Links links={student.links} divider={divider} />
+            <Links links={studentData.links} divider={divider} />
           </>
         ) : null}
       </article>
@@ -211,56 +213,136 @@ export default function IntroductionData() {
   return (
     <section>
       <h2>Introduction JSON Data</h2>
-      <form onSubmit={handleSearch}>
-        <label htmlFor="prefix">Email prefix</label>
-        <input
-          id="prefix"
-          name="prefix"
-          value={prefix}
-          onChange={(e) => setPrefix(e.target.value)}
-          placeholder="e.g. claguerr"
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? 'Searching...' : 'Search'}
-        </button>
-      </form>
 
-      {error && <p role="alert" style={{ color: 'red' }}>{error}</p>}
-      {loading && <p>Loading...</p>}
-
+      {/* Name Search Input */}
       <section>
-        <h3>Browse prefixes</h3>
-        {prefixError && <p role="alert" style={{ color: 'red' }}>{prefixError}</p>}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          {pageItems.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => handlePrefixClick(item)}
-              disabled={loading}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-        {totalPages > 1 && (
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <button type="button" onClick={() => setPage((p) => Math.max(p - 1, 0))} disabled={page === 0}>
-              Previous
-            </button>
-            <span>Page {page + 1} of {totalPages}</span>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
-              disabled={page >= totalPages - 1}
-            >
-              Next
-            </button>
-          </div>
-        )}
+        <h3>Search by Name</h3>
+        <input
+          type="text"
+          value={nameSearch}
+          onChange={(e) => setNameSearch(e.target.value)}
+          placeholder="Search by first or last name..."
+          style={{ width: '100%', maxWidth: '400px', padding: '0.5rem' }}
+        />
+        <p><strong>Found {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}</strong></p>
       </section>
 
-      {renderStudent()}
+      {/* Field Visibility Checkboxes */}
+      <section>
+        <h3>Display Fields</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem', marginBottom: '1rem' }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.name}
+              onChange={() => handleCheckboxChange('name')}
+            />
+            {' '}Name
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.mascot}
+              onChange={() => handleCheckboxChange('mascot')}
+            />
+            {' '}Mascot
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.image}
+              onChange={() => handleCheckboxChange('image')}
+            />
+            {' '}Image
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.personalStatement}
+              onChange={() => handleCheckboxChange('personalStatement')}
+            />
+            {' '}Personal Statement
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.backgrounds}
+              onChange={() => handleCheckboxChange('backgrounds')}
+            />
+            {' '}Backgrounds
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.classes}
+              onChange={() => handleCheckboxChange('classes')}
+            />
+            {' '}Classes
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.extraInfo}
+              onChange={() => handleCheckboxChange('extraInfo')}
+            />
+            {' '}Extra Information
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.quote}
+              onChange={() => handleCheckboxChange('quote')}
+            />
+            {' '}Quote
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFields.links}
+              onChange={() => handleCheckboxChange('links')}
+            />
+            {' '}Links
+          </label>
+        </div>
+      </section>
+
+      {/* Slideshow Navigation */}
+      {filteredStudents.length > 0 && (
+        <section>
+          <div style={{ marginBottom: '1rem' }}>
+            <button
+              type="button"
+              onClick={() => setShowAllMode(!showAllMode)}
+              style={{ marginBottom: '0.5rem' }}
+            >
+              {showAllMode ? 'Show Slideshow' : 'Show All Students'}
+            </button>
+          </div>
+
+          {!showAllMode ? (
+            <>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
+                <button type="button" onClick={goToPrevious}>
+                  Previous
+                </button>
+                <span>Student {currentIndex + 1} of {filteredStudents.length}</span>
+                <button type="button" onClick={goToNext}>
+                  Next
+                </button>
+              </div>
+              {renderStudent(filteredStudents[currentIndex])}
+            </>
+          ) : (
+            <div>
+              {filteredStudents.map((student, index) => (
+                <div key={index} style={{ marginBottom: '2rem', paddingBottom: '2rem', borderBottom: '1px solid #ccc' }}>
+                  {renderStudent(student)}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </section>
   );
 }
